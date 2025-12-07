@@ -179,6 +179,69 @@ class Colors:
     ERROR = Color(220, 20, 60)        # Crimson
     INFO = Color(70, 130, 180)        # Steel blue
 
+
+def parse_color(color) -> Color:
+    """
+    Parse color from various formats to Color object.
+
+    Supports:
+    - Hex string: '#FF6432', '#FF6432FF', 'FF6432'
+    - RGB tuple/list: (255, 100, 50) or [255, 100, 50, 255]
+    - Color object: Color(255, 100, 50)
+    - Dict: {'r': 255, 'g': 100, 'b': 50, 'a': 255}
+
+    Args:
+        color: Color in any supported format
+
+    Returns:
+        Color: Color namedtuple
+    """
+    if color is None:
+        return DEFAULT_COLOR
+
+    # Already a Color
+    if isinstance(color, Color):
+        return color
+
+    # Tuple or list: (r, g, b) or (r, g, b, a)
+    if isinstance(color, (tuple, list)):
+        r = color[0] if len(color) > 0 else 0
+        g = color[1] if len(color) > 1 else 0
+        b = color[2] if len(color) > 2 else 0
+        a = color[3] if len(color) > 3 else 255
+        return Color(r, g, b, a)
+
+    # Dict: {'r': ..., 'g': ..., 'b': ..., 'a': ...}
+    if isinstance(color, dict):
+        return Color(
+            r=color.get('r', 0),
+            g=color.get('g', 0),
+            b=color.get('b', 0),
+            a=color.get('a', 255)
+        )
+
+    # Hex string: '#FF6432', '#FF6432FF', 'FF6432'
+    if isinstance(color, str):
+        hex_str = color.lstrip('#')
+
+        # Handle short hex: #F00 -> #FF0000
+        if len(hex_str) == 3:
+            hex_str = hex_str[0] * 2 + hex_str[1] * 2 + hex_str[2] * 2
+
+        # Parse 6 or 8 character hex
+        if len(hex_str) >= 6:
+            try:
+                r = int(hex_str[0:2], 16)
+                g = int(hex_str[2:4], 16)
+                b = int(hex_str[4:6], 16)
+                a = int(hex_str[6:8], 16) if len(hex_str) >= 8 else 255
+                return Color(r, g, b, a)
+            except ValueError:
+                pass
+
+    return DEFAULT_COLOR
+
+
 # Magic constant for default theme color in packet format
 SI_DEFAULT_COLOR_VALUE = 0xFF000005
 

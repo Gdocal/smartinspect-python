@@ -28,6 +28,7 @@ from .enums import (
     SourceId,
     Color,
     DEFAULT_COLOR,
+    parse_color,
 )
 from .contexts import (
     InspectorViewerContext,
@@ -255,12 +256,15 @@ class Session:
 
     # ==================== Colored Logging ====================
 
-    def log_colored(self, color: Union[Color, tuple], *args) -> None:
-        """Log a colored message."""
-        if isinstance(color, tuple):
-            color = Color(*color)
+    def log_colored(self, color, *args) -> None:
+        """
+        Log a colored message.
+
+        Color can be: hex string '#FF6432', tuple (255,100,50), Color object, or dict.
+        """
+        parsed_color = parse_color(color)
         title = self._format_args(*args)
-        self._send_log_entry(self.parent.default_level, title, LogEntryType.MESSAGE, ViewerId.TITLE, color)
+        self._send_log_entry(self.parent.default_level, title, LogEntryType.MESSAGE, ViewerId.TITLE, parsed_color)
 
     # ==================== Exception Logging ====================
 

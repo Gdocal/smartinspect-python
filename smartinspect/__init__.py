@@ -86,6 +86,7 @@ from .enums import (
     Colors,
     DEFAULT_COLOR,
     SI_DEFAULT_COLOR_VALUE,
+    parse_color,
 )
 
 from .smartinspect import SmartInspect, get_default, get_main_session
@@ -131,6 +132,7 @@ __all__ = [
     "Colors",
     "DEFAULT_COLOR",
     "SI_DEFAULT_COLOR_VALUE",
+    "parse_color",
     # Contexts
     "ViewerContext",
     "TextContext",
