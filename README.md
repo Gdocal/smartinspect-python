@@ -71,16 +71,18 @@ si.disconnect()
 ```python
 from smartinspect import Colors
 
-# Use preset colors
+# Preset colors (recommended)
 si.log_colored(Colors.SUCCESS, "Done!")
 si.log_colored(Colors.WARNING, "Caution")
+si.log_colored(Colors.ERROR, "Failed!")
 
-# Or use hex string, tuple, or Color object
-si.log_colored("#FF6432", "Hex color")
+# Custom colors - multiple formats supported:
+si.log_colored("#FF6432", "Hex string")
+si.log_colored("#F00", "Short hex (red)")
 si.log_colored((255, 100, 50), "RGB tuple")
 ```
 
-Available presets: `RED`, `GREEN`, `BLUE`, `YELLOW`, `ORANGE`, `PURPLE`, `CYAN`, `PINK`, `WHITE`, `BLACK`, `GRAY`, `SUCCESS`, `WARNING`, `ERROR`, `INFO`
+**Presets:** `RED`, `GREEN`, `BLUE`, `YELLOW`, `ORANGE`, `PURPLE`, `CYAN`, `PINK`, `WHITE`, `BLACK`, `GRAY`, `SUCCESS`, `WARNING`, `ERROR`, `INFO`
 
 ## Using with Python's logging Module
 
