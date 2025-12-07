@@ -158,26 +158,30 @@ DEFAULT_COLOR = Color(r=5, g=0, b=0, a=255)
 
 
 class Colors:
-    """Preset colors for log_colored()."""
+    """Preset colors for log_colored().
 
-    # Basic colors
-    RED = Color(255, 0, 0)
-    GREEN = Color(0, 128, 0)
-    BLUE = Color(0, 0, 255)
-    YELLOW = Color(255, 255, 0)
-    ORANGE = Color(255, 165, 0)
-    PURPLE = Color(128, 0, 128)
-    CYAN = Color(0, 255, 255)
-    PINK = Color(255, 192, 203)
+    These colors are designed to work well as row backgrounds in both
+    dark and light themes - muted, pleasant, and readable.
+    """
+
+    # Basic colors - muted versions that work as row backgrounds
+    RED = Color(180, 80, 80)          # Muted coral red
+    GREEN = Color(80, 150, 100)       # Soft forest green
+    BLUE = Color(80, 120, 180)        # Soft steel blue
+    YELLOW = Color(200, 180, 100)     # Muted gold
+    ORANGE = Color(200, 130, 80)      # Muted terracotta
+    PURPLE = Color(140, 100, 160)     # Soft lavender purple
+    CYAN = Color(80, 160, 170)        # Muted teal
+    PINK = Color(180, 130, 150)       # Dusty rose
     WHITE = Color(255, 255, 255)
     BLACK = Color(0, 0, 0)
     GRAY = Color(128, 128, 128)
 
-    # Semantic colors (for important events)
-    SUCCESS = Color(34, 139, 34)      # Forest green
-    WARNING = Color(255, 140, 0)      # Dark orange
-    ERROR = Color(220, 20, 60)        # Crimson
-    INFO = Color(70, 130, 180)        # Steel blue
+    # Semantic colors - muted for readability
+    SUCCESS = Color(90, 150, 110)     # Muted green
+    WARNING = Color(190, 150, 80)     # Muted amber
+    ERROR = Color(170, 90, 90)        # Muted red
+    INFO = Color(90, 130, 160)        # Muted blue
 
 
 def parse_color(color) -> Color:
