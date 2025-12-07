@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "smartinspect"
+version = "1.0.0"
+description = "Production-ready Python client for SmartInspect logging console"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "SmartInspect", email = "support@smartinspect.com"}
+]
+keywords = ["logging", "debugging", "smartinspect", "tracing", "monitoring"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Debuggers",
+    "Topic :: System :: Logging",
+    "Topic :: System :: Monitoring",
+]
+requires-python = ">=3.8"
+dependencies = []
+
+[project.optional-dependencies]
+psutil = ["psutil>=5.0.0"]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "isort>=5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Gdocal/smartinspect-python"
+Repository = "https://github.com/Gdocal/smartinspect-python"
+
+[tool.setuptools.packages.find]
+include = ["smartinspect*"]
+
+[tool.black]
+line-length = 100
+target-version = ["py38", "py39", "py310", "py311", "py312"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
