@@ -156,6 +156,29 @@ class Color(NamedTuple):
 # This special value (0xFF000005) tells the console to use its theme color
 DEFAULT_COLOR = Color(r=5, g=0, b=0, a=255)
 
+
+class Colors:
+    """Preset colors for log_colored()."""
+
+    # Basic colors
+    RED = Color(255, 0, 0)
+    GREEN = Color(0, 128, 0)
+    BLUE = Color(0, 0, 255)
+    YELLOW = Color(255, 255, 0)
+    ORANGE = Color(255, 165, 0)
+    PURPLE = Color(128, 0, 128)
+    CYAN = Color(0, 255, 255)
+    PINK = Color(255, 192, 203)
+    WHITE = Color(255, 255, 255)
+    BLACK = Color(0, 0, 0)
+    GRAY = Color(128, 128, 128)
+
+    # Semantic colors (for important events)
+    SUCCESS = Color(34, 139, 34)      # Forest green
+    WARNING = Color(255, 140, 0)      # Dark orange
+    ERROR = Color(220, 20, 60)        # Crimson
+    INFO = Color(70, 130, 180)        # Steel blue
+
 # Magic constant for default theme color in packet format
 SI_DEFAULT_COLOR_VALUE = 0xFF000005
 

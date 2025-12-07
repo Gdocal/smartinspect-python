@@ -83,6 +83,7 @@ from .enums import (
     SourceId,
     GraphicId,
     Color,
+    Colors,
     DEFAULT_COLOR,
     SI_DEFAULT_COLOR_VALUE,
 )
@@ -127,6 +128,7 @@ __all__ = [
     "SourceId",
     "GraphicId",
     "Color",
+    "Colors",
     "DEFAULT_COLOR",
     "SI_DEFAULT_COLOR_VALUE",
     # Contexts

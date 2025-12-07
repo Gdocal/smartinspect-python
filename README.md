@@ -57,8 +57,30 @@ with si.track_method("my_function"):
 # Watch variables
 si.watch("counter", 42)
 
+# Colored logging (use sparingly for important events)
+from smartinspect import Colors
+si.log_colored(Colors.SUCCESS, "Operation completed")
+si.log_colored(Colors.WARNING, "Rate limit approaching")
+
 # Clean up
 si.disconnect()
+```
+
+## Preset Colors
+
+```python
+from smartinspect import Colors
+
+# Basic colors
+Colors.RED, Colors.GREEN, Colors.BLUE, Colors.YELLOW
+Colors.ORANGE, Colors.PURPLE, Colors.CYAN, Colors.PINK
+Colors.WHITE, Colors.BLACK, Colors.GRAY
+
+# Semantic colors (for important events)
+Colors.SUCCESS   # Forest green
+Colors.WARNING   # Dark orange
+Colors.ERROR     # Crimson
+Colors.INFO      # Steel blue
 ```
 
 ## Using with Python's logging Module
@@ -124,6 +146,7 @@ db_session.log_sql("Query", "SELECT * FROM users")
 - `log_error(*args)` - Log error
 - `log_fatal(*args)` - Log fatal error
 - `log_separator()` - Log a separator line
+- `log_colored(color, *args)` - Log with color (use `Colors.SUCCESS`, `Colors.WARNING`, etc.)
 
 ### Structured Data
 - `log_object(title, obj)` - Log object with properties
