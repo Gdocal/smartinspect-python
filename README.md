@@ -69,19 +69,17 @@ si.disconnect()
 ## Preset Colors
 
 ```python
-from smartinspect import Colors
+from smartinspect import Colors, Color
 
-# Basic colors
-Colors.RED, Colors.GREEN, Colors.BLUE, Colors.YELLOW
-Colors.ORANGE, Colors.PURPLE, Colors.CYAN, Colors.PINK
-Colors.WHITE, Colors.BLACK, Colors.GRAY
+# Use preset colors
+si.log_colored(Colors.SUCCESS, "Done!")
+si.log_colored(Colors.WARNING, "Caution")
 
-# Semantic colors (for important events)
-Colors.SUCCESS   # Forest green
-Colors.WARNING   # Dark orange
-Colors.ERROR     # Crimson
-Colors.INFO      # Steel blue
+# Or create custom colors: Color(r, g, b)
+si.log_colored(Color(255, 100, 50), "Custom color")
 ```
+
+Available presets: `RED`, `GREEN`, `BLUE`, `YELLOW`, `ORANGE`, `PURPLE`, `CYAN`, `PINK`, `WHITE`, `BLACK`, `GRAY`, `SUCCESS`, `WARNING`, `ERROR`, `INFO`
 
 ## Using with Python's logging Module
 
