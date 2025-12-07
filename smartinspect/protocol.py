@@ -304,8 +304,10 @@ class TcpProtocol:
         Connect to SmartInspect Console.
         Non-blocking - starts connection in background thread.
         """
-        if self._connected or self._connect_in_progress:
-            return
+        with self._lock:
+            if self._connected or self._connect_in_progress:
+                return
+            self._connect_in_progress = True
 
         # Start connection in background
         thread = threading.Thread(target=self._background_connect, daemon=True)
@@ -314,7 +316,6 @@ class TcpProtocol:
     def _background_connect(self) -> None:
         """Background connection (fire and forget)."""
         try:
-            self._connect_in_progress = True
             self._internal_connect()
             self._connected = True
             self._failed = False
