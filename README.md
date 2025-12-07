@@ -20,12 +20,12 @@ A production-ready Python client for the SmartInspect logging console.
 ## Installation
 
 ```bash
-pip install smartinspect
+pip install git+https://github.com/Gdocal/smartinspect-python.git
 ```
 
 For memory monitoring features:
 ```bash
-pip install smartinspect[psutil]
+pip install "smartinspect[psutil] @ git+https://github.com/Gdocal/smartinspect-python.git"
 ```
 
 ## Quick Start
