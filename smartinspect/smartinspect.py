@@ -44,6 +44,7 @@ class SmartInspect:
 
         self.protocol: Optional[TcpProtocol] = None
         self._sessions: Dict[str, Session] = {}
+        self._connection_options: Optional[Dict[str, Any]] = None  # Store for reconnect
 
         # Create default session
         self.main_session = Session(self, "Main")
@@ -102,6 +103,22 @@ class SmartInspect:
             backlog_enabled = options.get("backlog_enabled", backlog_enabled)
             backlog_queue = options.get("backlog_queue", backlog_queue)
             backlog_keep_open = options.get("backlog_keep_open", backlog_keep_open)
+
+        # Store connection options for reconnect via set_enabled()
+        self._connection_options = {
+            "host": host,
+            "port": port,
+            "timeout": timeout,
+            "room": room,
+            "reconnect": reconnect,
+            "reconnect_interval": reconnect_interval,
+            "backlog_enabled": backlog_enabled,
+            "backlog_queue": backlog_queue,
+            "backlog_keep_open": backlog_keep_open,
+            "on_error": on_error,
+            "on_connect": on_connect,
+            "on_disconnect": on_disconnect,
+        }
 
         # Set room
         if room:
@@ -264,8 +281,26 @@ class SmartInspect:
             self.level = level
 
     def set_enabled(self, enabled: bool) -> None:
-        """Enable/disable logging."""
-        self.enabled = enabled
+        """
+        Enable/disable logging (like C# SmartInspect.Enabled property).
+
+        - When disabled: disconnects from the server
+        - When enabled: reconnects using stored connection options
+        """
+        if enabled == self.enabled:
+            return  # No change
+
+        if enabled:
+            # Enable: reconnect if we have stored connection options
+            self.enabled = True
+            if self._connection_options and not self.is_connected():
+                self.connect(**self._connection_options)
+        else:
+            # Disable: disconnect but keep connection options for later reconnect
+            self.enabled = False
+            if self.protocol:
+                self.protocol.disconnect()
+                self.protocol = None
 
     # ==================== Convenience proxy methods to main session ====================
 
