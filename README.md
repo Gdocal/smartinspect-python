@@ -173,11 +173,20 @@ db_session.log_sql("Query", "SELECT * FROM users")
 - `log_bool(name, value)` - Log boolean
 
 ### Watch Variables
-- `watch(name, value)` - Watch any value
-- `watch_string(name, value)` - Watch string
-- `watch_int(name, value)` - Watch integer
-- `watch_float(name, value)` - Watch float
-- `watch_bool(name, value)` - Watch boolean
+- `watch(name, value, group="")` - Watch any value
+- `watch_string(name, value, group="")` - Watch string
+- `watch_int(name, value, group="")` - Watch integer
+- `watch_float(name, value, group="")` - Watch float
+- `watch_bool(name, value, group="")` - Watch boolean
+
+The optional `group` parameter organizes watches in the web viewer:
+```python
+# Group watches by category
+si.watch("cpu_usage", 45.2, group="Performance")
+si.watch("memory_mb", 2048, group="Performance")
+si.watch("active_users", 123, group="Stats")
+si.watch("queue_size", 5, group="Stats")
+```
 
 ### Method Tracking
 - `enter_method(name)` - Enter a method
@@ -206,7 +215,20 @@ db_session.log_sql("Query", "SELECT * FROM users")
 - `log_stack_trace()` - Log current stack trace
 
 ### Stream Data
-- `log_stream(channel, data, type)` - Send high-frequency data to a named channel
+- `log_stream(channel, data, stream_type="", group="")` - Send high-frequency data to a named channel
+
+```python
+# Basic stream
+si.log_stream("metrics", {"cpu": 45.2, "memory": 2048})
+
+# With type identifier (shown in Type column)
+si.log_stream("events", "User logged in", stream_type="text")
+
+# With group for organizing streams in the viewer
+si.log_stream("cpu_load", 45.2, stream_type="metric", group="Performance")
+si.log_stream("memory", 2048, stream_type="metric", group="Performance")
+si.log_stream("latency", 23.5, stream_type="metric", group="Network")
+```
 
 ### Control Commands
 - `clear_all()` - Clear all views
@@ -226,6 +248,26 @@ The client automatically detects WSL environments and finds the Windows host IP:
 from smartinspect import detect_wsl_host
 
 host = detect_wsl_host()  # Returns Windows host IP or None
+```
+
+## Best Practices
+
+### Lazy Initialization
+When sessions are imported before `connect()`, use getters:
+```python
+_session = None
+def get_session():
+    global _session
+    if _session is None:
+        si.connect(...)
+        _session = si.get_session("MySession")
+    return _session
+```
+
+### Informative Titles
+Put key info in title, details in object:
+```python
+log.log_json(f"QUERY '{query[:40]}' → {len(results)} results", {"query": query, "results": results})
 ```
 
 ## License

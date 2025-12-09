@@ -148,12 +148,13 @@ class BinaryFormatter:
         """
         Compile a Watch packet.
 
-        Watch binary format:
-        [nameLen(4)] [valueLen(4)] [watchType(4)] [timestamp(8)]
-        [name] [value]
+        Watch binary format v2 (with group):
+        [nameLen(4)] [valueLen(4)] [watchType(4)] [timestamp(8)] [groupLen(4)]
+        [name] [value] [group]
         """
         name_bytes = self.encode_string(packet.get("name", ""))
         value_bytes = self.encode_string(packet.get("value", ""))
+        group_bytes = self.encode_string(packet.get("group", ""))
         timestamp = self.date_to_timestamp(packet.get("timestamp", datetime.now()))
 
         parts = [
@@ -161,12 +162,15 @@ class BinaryFormatter:
             self.write_int32(len(value_bytes) if value_bytes else 0),
             self.write_int32(packet.get("watch_type", 0)),
             self.write_double(timestamp),
+            self.write_int32(len(group_bytes) if group_bytes else 0),
         ]
 
         if name_bytes:
             parts.append(name_bytes)
         if value_bytes:
             parts.append(value_bytes)
+        if group_bytes:
+            parts.append(group_bytes)
 
         return b"".join(parts)
 
@@ -222,13 +226,14 @@ class BinaryFormatter:
         """
         Compile a Stream packet.
 
-        Stream binary format (v2 with type):
-        [channelLen(4)] [dataLen(4)] [typeLen(4)] [timestamp(8)]
-        [channel] [data] [type]
+        Stream binary format v3 (with group):
+        [channelLen(4)] [dataLen(4)] [typeLen(4)] [timestamp(8)] [groupLen(4)]
+        [channel] [data] [type] [group]
         """
         channel_bytes = self.encode_string(packet.get("channel", ""))
         data_bytes = self.encode_string(packet.get("data", ""))
         type_bytes = self.encode_string(packet.get("stream_type", ""))
+        group_bytes = self.encode_string(packet.get("group", ""))
         timestamp = self.date_to_timestamp(packet.get("timestamp", datetime.now()))
 
         parts = [
@@ -236,6 +241,7 @@ class BinaryFormatter:
             self.write_int32(len(data_bytes) if data_bytes else 0),
             self.write_int32(len(type_bytes) if type_bytes else 0),
             self.write_double(timestamp),
+            self.write_int32(len(group_bytes) if group_bytes else 0),
         ]
 
         if channel_bytes:
@@ -244,6 +250,8 @@ class BinaryFormatter:
             parts.append(data_bytes)
         if type_bytes:
             parts.append(type_bytes)
+        if group_bytes:
+            parts.append(group_bytes)
 
         return b"".join(parts)
 

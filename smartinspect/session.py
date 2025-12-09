@@ -132,6 +132,7 @@ class Session:
         name: str,
         value: str,
         watch_type: int,
+        group: str = "",
     ) -> None:
         """Send a watch packet."""
         if not self.is_on(level):
@@ -143,6 +144,7 @@ class Session:
             "value": value,
             "watch_type": watch_type,
             "timestamp": datetime.now(),
+            "group": group,
         }
 
         self.parent.send_packet(packet)
@@ -579,24 +581,54 @@ class Session:
 
     # ==================== Watch Variables ====================
 
-    def watch_string(self, name: str, value: str) -> None:
-        """Watch a string value."""
-        self._send_watch(self.parent.default_level, name, value, WatchType.STRING)
+    def watch_string(self, name: str, value: str, group: str = "") -> None:
+        """Watch a string value.
 
-    def watch_int(self, name: str, value: int) -> None:
-        """Watch an integer value."""
-        self._send_watch(self.parent.default_level, name, str(value), WatchType.INTEGER)
+        Args:
+            name: Watch variable name
+            value: Value to display
+            group: Optional group for organizing watches
+        """
+        self._send_watch(self.parent.default_level, name, value, WatchType.STRING, group)
 
-    def watch_float(self, name: str, value: float) -> None:
-        """Watch a float value."""
-        self._send_watch(self.parent.default_level, name, str(value), WatchType.FLOAT)
+    def watch_int(self, name: str, value: int, group: str = "") -> None:
+        """Watch an integer value.
 
-    def watch_bool(self, name: str, value: bool) -> None:
-        """Watch a boolean value."""
-        self._send_watch(self.parent.default_level, name, "True" if value else "False", WatchType.BOOLEAN)
+        Args:
+            name: Watch variable name
+            value: Integer value
+            group: Optional group for organizing watches
+        """
+        self._send_watch(self.parent.default_level, name, str(value), WatchType.INTEGER, group)
 
-    def watch(self, name: str, value: Any) -> None:
-        """Watch any value."""
+    def watch_float(self, name: str, value: float, group: str = "") -> None:
+        """Watch a float value.
+
+        Args:
+            name: Watch variable name
+            value: Float value
+            group: Optional group for organizing watches
+        """
+        self._send_watch(self.parent.default_level, name, str(value), WatchType.FLOAT, group)
+
+    def watch_bool(self, name: str, value: bool, group: str = "") -> None:
+        """Watch a boolean value.
+
+        Args:
+            name: Watch variable name
+            value: Boolean value
+            group: Optional group for organizing watches
+        """
+        self._send_watch(self.parent.default_level, name, "True" if value else "False", WatchType.BOOLEAN, group)
+
+    def watch(self, name: str, value: Any, group: str = "") -> None:
+        """Watch any value (auto-detects type).
+
+        Args:
+            name: Watch variable name
+            value: Value to watch
+            group: Optional group for organizing watches
+        """
         if isinstance(value, str):
             watch_type = WatchType.STRING
             str_value = value
@@ -616,7 +648,7 @@ class Session:
             watch_type = WatchType.OBJECT
             str_value = self._format_value(value)
 
-        self._send_watch(self.parent.default_level, name, str_value, watch_type)
+        self._send_watch(self.parent.default_level, name, str_value, watch_type, group)
 
     # ==================== Method Tracking ====================
 
@@ -708,7 +740,13 @@ class Session:
 
     # ==================== Stream Data ====================
 
-    def log_stream(self, channel: str, data: Any, stream_type: Optional[str] = None) -> None:
+    def log_stream(
+        self,
+        channel: str,
+        data: Any,
+        stream_type: str = "",
+        group: str = "",
+    ) -> None:
         """
         Send stream data to a named channel.
         Streams are lightweight, high-frequency data channels for metrics, timeseries, etc.
@@ -717,6 +755,7 @@ class Session:
             channel: Channel name (e.g., 'metrics', 'cpu', 'memory')
             data: Data to send (will be JSON stringified if object)
             stream_type: Optional type identifier (e.g., 'json', 'text', 'metric')
+            group: Optional group for organizing stream channels
         """
         if not self.is_on(self.parent.default_level):
             return
@@ -733,7 +772,8 @@ class Session:
             "packet_type": PacketType.STREAM,
             "channel": channel,
             "data": data_str,
-            "stream_type": stream_type or "",
+            "stream_type": stream_type,
+            "group": group,
             "timestamp": datetime.now(),
         }
 
