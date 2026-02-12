@@ -351,15 +351,30 @@ class Session:
 
     # ==================== Colored Logging ====================
 
-    def log_colored(self, color, *args) -> None:
+    def log_colored(self, *args) -> None:
         """
         Log a colored message.
 
+        Supports:
+        - (color, *message_args)
+        - (level, color, *message_args)
+
         Color can be: hex string '#FF6432', tuple (255,100,50), Color object, or dict.
         """
+        if args and self._is_level_value(args[0]) and len(args) >= 2:
+            level = int(args[0])
+            rem = args[1:]
+        else:
+            level = int(self.parent.default_level)
+            rem = args
+
+        if not rem:
+            raise TypeError("log_colored() expects (color, *args) or (level, color, *args)")
+
+        color = rem[0]
         parsed_color = parse_color(color)
-        title = self._format_args(*args)
-        self._send_log_entry(self.parent.default_level, title, LogEntryType.MESSAGE, ViewerId.TITLE, parsed_color)
+        title = self._format_args(*rem[1:])
+        self._send_log_entry(level, title, LogEntryType.MESSAGE, ViewerId.TITLE, parsed_color)
 
     # ==================== Exception Logging ====================
 

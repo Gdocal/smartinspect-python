@@ -71,6 +71,23 @@ def test_log_stream_accepts_level_as_first_argument():
     assert json.loads(packet["data"])["cpu"] == 42
 
 
+def test_log_colored_accepts_optional_leading_level():
+    parent = _DummyParent()
+    session = Session(parent, "Main")
+
+    session.log_colored(Level.WARNING, "#ff0000", "rate limit")
+    packet = parent.sent_packets[-1]
+    assert packet["packet_type"] == PacketType.LOG_ENTRY
+    assert packet["level"] == Level.WARNING
+    assert packet["title"] == "rate limit"
+
+    session.log_colored("#00ff00", "ok")
+    packet2 = parent.sent_packets[-1]
+    assert packet2["packet_type"] == PacketType.LOG_ENTRY
+    assert packet2["level"] == Level.MESSAGE
+    assert packet2["title"] == "ok"
+
+
 def test_binary_formatter_log_entry_v3_layout():
     formatter = BinaryFormatter()
     payload = {
