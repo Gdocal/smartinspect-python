@@ -9,10 +9,13 @@ A production-ready Python client for the SmartInspect logging console.
 - **Source code logging** with syntax highlighting (Python, SQL, JSON, XML, HTML)
 - **Binary data** hex dump viewer
 - **Watch variables** for real-time monitoring
+- **Labeled metrics** (Prometheus-style labels) via `watch_with_labels` and `metric(...)`
 - **Checkpoints and counters** for execution tracking
 - **Timer/performance tracking**
 - **System info and memory logging**
 - **Backlog buffering** for disconnected state
+- **Async sender queue** so logging calls can return immediately
+- **Context tags and trace correlation** (`SiContext`, `AsyncContext`, `*_ctx` logging methods)
 - **Auto-reconnect** with time-gating
 - **WSL host auto-detection**
 - **Integration** with Python's logging module
@@ -115,16 +118,50 @@ si.connect(
     reconnect_interval=3.0,     # Seconds between reconnect attempts
     backlog_enabled=True,       # Buffer packets when disconnected
     backlog_queue=2048,         # Max backlog size in KB
+    backlog_flush_on="error",   # Flush backlog on this level or above
+    async_enabled=True,         # Non-blocking caller thread (background sender)
+    async_queue=2048,           # Max async sender queue in KB
+    async_throttle=False,       # If True, block when async queue is full
+    async_clear_on_disconnect=False,  # If True, drop pending async packets on disconnect
     on_connect=lambda b: print(f"Connected: {b}"),
     on_disconnect=lambda: print("Disconnected"),
     on_error=lambda e: print(f"Error: {e}"),
 )
 ```
 
+`reconnect_interval` is in seconds in the Python API.
+
 Or use a connection string:
 ```python
-si.connect(connection_string="tcp(host=localhost,port=4228,room=myproject,backlog=2048)")
+si.connect(
+    connection_string=(
+        "tcp(host=localhost,port=4228,room=myproject,"
+        "backlog=2048,backlog.flushon=error,"
+        "async.enabled=true,async.queue=2048,async.clearondisconnect=false)"
+    )
+)
 ```
+
+In connection strings, `reconnect.interval` supports values like `3000`, `3000ms`, or `3s`.
+
+### C# Configuration and Runtime Parity
+
+The `SmartInspect` class now includes C#-parity runtime/configuration APIs:
+
+- `set_variable(key, value)` / `get_variable(key)` / `unset_variable(key)`
+- `load_connections(file_name, do_not_enable=False)`
+- `load_configuration(file_name)`
+- `now()`
+- `dispatch(caption, action, state)`
+- `send_control_command(packet_or_object)`
+- `send_log_entry(packet_or_object)`
+- `send_process_flow(packet_or_object)`
+- `send_watch(packet_or_object)`
+- `send_stream_packet(packet_or_object)`
+- `dispose()`
+
+Variables can be referenced in connection strings as `${key}` or `%key%`.
+
 
 ## Session Management
 
@@ -139,6 +176,10 @@ db_session.log_sql("Query", "SELECT * FROM users")
 
 ## Available Logging Methods
 
+Most session methods support C#-style overloads by accepting an optional leading `level` argument.
+Additional C# parity helpers include metrics, stream helpers, context/tag helpers, data-table/data-set logging, bitmap/icon/jpeg/metafile logging aliases, and custom packet helper methods.
+
+
 ### Basic Logging
 - `log_message(*args)` - Log a message
 - `log_debug(*args)` - Log debug message
@@ -146,6 +187,11 @@ db_session.log_sql("Query", "SELECT * FROM users")
 - `log_warning(*args)` - Log warning
 - `log_error(*args)` - Log error
 - `log_fatal(*args)` - Log fatal error
+- `log_message_ctx(title, context)` - Log message with inline context tags
+- `log_warning_ctx(title, context)` - Log warning with inline context tags
+- `log_error_ctx(title, context)` - Log error with inline context tags
+- `log_debug_ctx(title, context)` - Log debug with inline context tags
+- `log_verbose_ctx(title, context)` - Log verbose with inline context tags
 - `log_separator()` - Log a separator line
 - `log_colored(color, *args)` - Log with color (use `Colors.SUCCESS`, `Colors.WARNING`, etc.)
 
@@ -178,6 +224,8 @@ db_session.log_sql("Query", "SELECT * FROM users")
 - `watch_int(name, value, group="")` - Watch integer
 - `watch_float(name, value, group="")` - Watch float
 - `watch_bool(name, value, group="")` - Watch boolean
+- `watch_with_labels(name, value, labels, level=None)` - Watch with labels for multi-dimensional metrics
+- `metric(name)` - Fluent metric builder (`for_instance`, `with_label`, `with_level`, `set`)
 
 The optional `group` parameter organizes watches in the web viewer:
 ```python
@@ -216,6 +264,7 @@ si.watch("queue_size", 5, group="Stats")
 
 ### Stream Data
 - `log_stream(channel, data, stream_type="", group="")` - Send high-frequency data to a named channel
+- `log_stream(level, channel, data, stream_type="", group="")` - Same with explicit level
 
 ```python
 # Basic stream
@@ -229,6 +278,44 @@ si.log_stream("cpu_load", 45.2, stream_type="metric", group="Performance")
 si.log_stream("memory", 2048, stream_type="metric", group="Performance")
 si.log_stream("latency", 23.5, stream_type="metric", group="Network")
 ```
+
+### Metrics (Labeled)
+
+```python
+# Direct labeled metric
+si.watch_with_labels(
+    "strategy_pnl",
+    1250.50,
+    {"instance": "BTC_trade", "env": "prod"},
+)
+
+# Fluent metric builder
+si.metric("strategy_exit_reason") \
+  .for_instance("BTC_trade") \
+  .with_label("env", "prod") \
+  .set("take_profit")
+```
+
+### Context and Trace Tags
+
+```python
+from smartinspect import SiContext, AsyncContext
+
+with SiContext.scope({"requestId": "req-123", "userId": "john"}):
+    si.log_message_ctx("Order created", {"orderId": "ord-77", "total": 420.5})
+
+with AsyncContext.begin_correlation("CheckoutFlow"):
+    with AsyncContext.begin_operation("ValidateCart"):
+        si.log_debug("Validating cart")
+```
+
+`*_ctx` methods merge inline context with active `SiContext` scope, and packets include trace/correlation metadata when available.
+
+Context utility exports:
+- `SiContext.scope(...)`
+- `SiContext.build().with_value(...).begin()`
+- `AsyncContext.begin_correlation(...)`
+- `AsyncContext.begin_operation(...)`
 
 ### Control Commands
 - `clear_all()` - Clear all views

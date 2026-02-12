@@ -7,6 +7,7 @@ Matches the C# BinaryFormatter implementation.
 """
 
 import struct
+import json
 from datetime import datetime
 from typing import Optional, Dict, Any, Union
 
@@ -102,16 +103,22 @@ class BinaryFormatter:
         """
         Compile a LogEntry packet.
 
-        LogEntry binary format:
+        LogEntry binary format (v3):
         [logEntryType(4)] [viewerId(4)]
-        [appNameLen(4)] [sessionNameLen(4)] [titleLen(4)] [hostNameLen(4)] [dataLen(4)]
-        [processId(4)] [threadId(4)] [timestamp(8)] [color(4)]
-        [appName] [sessionName] [title] [hostName] [data]
+        [appNameLen(4)] [sessionNameLen(4)] [titleLen(4)] [hostNameLen(4)]
+        [correlationIdLen(4)] [operationNameLen(4)] [ctxLen(4)] [dataLen(4)]
+        [processId(4)] [threadId(4)] [timestamp(8)] [color(4)] [operationDepth(4)]
+        [appName] [sessionName] [title] [hostName] [correlationId] [operationName] [ctx] [data]
         """
         app_name_bytes = self.encode_string(packet.get("app_name", ""))
         session_name_bytes = self.encode_string(packet.get("session_name", ""))
         title_bytes = self.encode_string(packet.get("title", ""))
         host_name_bytes = self.encode_string(packet.get("host_name", ""))
+        correlation_id_bytes = self.encode_string(packet.get("correlation_id"))
+        operation_name_bytes = self.encode_string(packet.get("operation_name"))
+        ctx = packet.get("ctx")
+        ctx_json = json.dumps(ctx, separators=(",", ":"), default=str) if ctx else None
+        ctx_bytes = self.encode_string(ctx_json)
         data_bytes = packet.get("data")
 
         timestamp = self.date_to_timestamp(packet.get("timestamp", datetime.now()))
@@ -124,11 +131,15 @@ class BinaryFormatter:
             self.write_int32(len(session_name_bytes) if session_name_bytes else 0),
             self.write_int32(len(title_bytes) if title_bytes else 0),
             self.write_int32(len(host_name_bytes) if host_name_bytes else 0),
+            self.write_int32(len(correlation_id_bytes) if correlation_id_bytes else 0),
+            self.write_int32(len(operation_name_bytes) if operation_name_bytes else 0),
+            self.write_int32(len(ctx_bytes) if ctx_bytes else 0),
             self.write_int32(len(data_bytes) if data_bytes else 0),
             self.write_int32(packet.get("process_id", 0)),
             self.write_int32(packet.get("thread_id", 0)),
             self.write_double(timestamp),
             self.write_uint32(color_int),
+            self.write_int32(packet.get("operation_depth", 0)),
         ]
 
         if app_name_bytes:
@@ -139,6 +150,12 @@ class BinaryFormatter:
             parts.append(title_bytes)
         if host_name_bytes:
             parts.append(host_name_bytes)
+        if correlation_id_bytes:
+            parts.append(correlation_id_bytes)
+        if operation_name_bytes:
+            parts.append(operation_name_bytes)
+        if ctx_bytes:
+            parts.append(ctx_bytes)
         if data_bytes:
             parts.append(data_bytes)
 
@@ -148,13 +165,16 @@ class BinaryFormatter:
         """
         Compile a Watch packet.
 
-        Watch binary format v2 (with group):
-        [nameLen(4)] [valueLen(4)] [watchType(4)] [timestamp(8)] [groupLen(4)]
-        [name] [value] [group]
+        Watch binary format v3 (with group + labels):
+        [nameLen(4)] [valueLen(4)] [watchType(4)] [timestamp(8)] [groupLen(4)] [labelsLen(4)]
+        [name] [value] [group] [labels]
         """
         name_bytes = self.encode_string(packet.get("name", ""))
         value_bytes = self.encode_string(packet.get("value", ""))
         group_bytes = self.encode_string(packet.get("group", ""))
+        labels = packet.get("labels")
+        labels_json = json.dumps(labels, separators=(",", ":"), default=str) if labels else None
+        labels_bytes = self.encode_string(labels_json)
         timestamp = self.date_to_timestamp(packet.get("timestamp", datetime.now()))
 
         parts = [
@@ -163,6 +183,7 @@ class BinaryFormatter:
             self.write_int32(packet.get("watch_type", 0)),
             self.write_double(timestamp),
             self.write_int32(len(group_bytes) if group_bytes else 0),
+            self.write_int32(len(labels_bytes) if labels_bytes else 0),
         ]
 
         if name_bytes:
@@ -171,6 +192,8 @@ class BinaryFormatter:
             parts.append(value_bytes)
         if group_bytes:
             parts.append(group_bytes)
+        if labels_bytes:
+            parts.append(labels_bytes)
 
         return b"".join(parts)
 
@@ -178,19 +201,21 @@ class BinaryFormatter:
         """
         Compile a ProcessFlow packet.
 
-        ProcessFlow binary format:
-        [processFlowType(4)] [titleLen(4)] [hostNameLen(4)]
+        ProcessFlow binary format (v3):
+        [processFlowType(4)] [titleLen(4)] [hostNameLen(4)] [correlationIdLen(4)]
         [processId(4)] [threadId(4)] [timestamp(8)]
-        [title] [hostName]
+        [title] [hostName] [correlationId]
         """
         title_bytes = self.encode_string(packet.get("title", ""))
         host_name_bytes = self.encode_string(packet.get("host_name", ""))
+        correlation_id_bytes = self.encode_string(packet.get("correlation_id"))
         timestamp = self.date_to_timestamp(packet.get("timestamp", datetime.now()))
 
         parts = [
             self.write_int32(packet.get("process_flow_type", 0)),
             self.write_int32(len(title_bytes) if title_bytes else 0),
             self.write_int32(len(host_name_bytes) if host_name_bytes else 0),
+            self.write_int32(len(correlation_id_bytes) if correlation_id_bytes else 0),
             self.write_int32(packet.get("process_id", 0)),
             self.write_int32(packet.get("thread_id", 0)),
             self.write_double(timestamp),
@@ -200,6 +225,8 @@ class BinaryFormatter:
             parts.append(title_bytes)
         if host_name_bytes:
             parts.append(host_name_bytes)
+        if correlation_id_bytes:
+            parts.append(correlation_id_bytes)
 
         return b"".join(parts)
 

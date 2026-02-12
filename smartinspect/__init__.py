@@ -107,6 +107,7 @@ from .contexts import (
     WebViewerContext,
     GraphicViewerContext,
 )
+from .context_api import SiContext, AsyncContext, ContextBuilder, ContextKey, ContextValue, Ctx
 from .handler import SmartInspectHandler, SmartInspectLoggerAdapter
 
 __all__ = [
@@ -146,6 +147,13 @@ __all__ = [
     "SourceViewerContext",
     "WebViewerContext",
     "GraphicViewerContext",
+    # Context/trace APIs
+    "SiContext",
+    "AsyncContext",
+    "ContextBuilder",
+    "ContextKey",
+    "ContextValue",
+    "Ctx",
     # Handler
     "SmartInspectHandler",
     "SmartInspectLoggerAdapter",

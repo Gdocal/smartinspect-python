@@ -72,3 +72,5 @@ Thumbs.db
 
 # Test files (keep in repo but exclude from package)
 test_*.py
+!tests/
+!tests/test_*.py

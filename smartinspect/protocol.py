@@ -13,16 +13,13 @@ Handles TCP connections with support for:
 import socket
 import threading
 import time
-import os
 import re
 import subprocess
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from typing import Optional, Callable, Dict, Any, List
-from queue import Queue, Empty
 
 from .formatter import BinaryFormatter
-from .enums import PacketType
+from .enums import PacketType, Level
 
 # Version and protocol constants
 CLIENT_VERSION = "1.0.0"
@@ -185,14 +182,26 @@ class PacketQueue:
         if dropped_count > 0 and self.on_packet_dropped:
             self.on_packet_dropped(dropped_count)
 
-    def _get_packet_size(self, packet: Dict[str, Any]) -> int:
+    @staticmethod
+    def estimate_packet_size(packet: Dict[str, Any]) -> int:
         """Estimate packet size in bytes."""
         if not packet:
             return 0
 
         size = 64  # Base packet overhead
 
-        for key in ("title", "app_name", "session_name", "host_name", "content", "channel"):
+        for key in (
+            "title",
+            "app_name",
+            "session_name",
+            "host_name",
+            "content",
+            "channel",
+            "stream_type",
+            "group",
+            "correlation_id",
+            "operation_name",
+        ):
             value = packet.get(key)
             if value:
                 size += len(str(value).encode("utf-8"))
@@ -204,7 +213,18 @@ class PacketQueue:
             else:
                 size += len(str(data).encode("utf-8"))
 
+        labels = packet.get("labels")
+        if labels:
+            size += len(str(labels).encode("utf-8"))
+
+        ctx = packet.get("ctx")
+        if ctx:
+            size += len(str(ctx).encode("utf-8"))
+
         return size
+
+    def _get_packet_size(self, packet: Dict[str, Any]) -> int:
+        return self.estimate_packet_size(packet)
 
     def get_all(self) -> List[Dict[str, Any]]:
         """Get all packets from queue (draining it)."""
@@ -224,6 +244,7 @@ class TcpProtocol:
     Features:
     - Auto-reconnect with time-gating
     - Backlog buffering for disconnected state
+    - Async packet dispatch via background worker (C# parity)
     - Event callbacks (on_error, on_connect, on_disconnect)
     - Thread-safe packet sending
     """
@@ -247,6 +268,12 @@ class TcpProtocol:
         backlog_enabled: bool = True,
         backlog_queue: int = 2048,  # KB
         backlog_keep_open: bool = True,
+        backlog_flush_on: int = int(Level.ERROR),
+        # Async dispatch settings
+        async_enabled: bool = True,
+        async_queue: int = 2048,  # KB
+        async_throttle: bool = False,
+        async_clear_on_disconnect: bool = False,
     ):
         self.host = host
         self.port = port
@@ -267,10 +294,22 @@ class TcpProtocol:
 
         # Backlog settings
         self.backlog_enabled = backlog_enabled
+        self.backlog_flush_on = int(backlog_flush_on)
         self._queue = PacketQueue()
         self._queue.backlog = backlog_queue * 1024  # Convert KB to bytes
         self._queue.on_packet_dropped = self._on_backlog_overflow
         self._keep_open = not backlog_enabled or backlog_keep_open
+
+        # Async settings
+        self.async_enabled = async_enabled
+        self.async_throttle = async_throttle
+        self.async_clear_on_disconnect = async_clear_on_disconnect
+        self._async_queue = PacketQueue()
+        self._async_queue.backlog = max(0, async_queue * 1024)  # Convert KB to bytes
+        self._async_queue.on_packet_dropped = self._on_async_overflow
+        self._async_condition = threading.Condition()
+        self._async_stop_requested = False
+        self._async_worker: Optional[threading.Thread] = None
 
         # Internal state
         self._socket: Optional[socket.socket] = None
@@ -295,15 +334,98 @@ class TcpProtocol:
         if self.on_error:
             self.on_error(Exception(f"Backlog overflow: {count} packets dropped"))
 
+    def _on_async_overflow(self, count: int) -> None:
+        """Called when packets are dropped from async queue."""
+        if self.on_error:
+            self.on_error(Exception(f"Async queue overflow: {count} packets dropped"))
+
     def build_log_header_content(self) -> str:
         """Build LogHeader content string."""
         return f"hostname={self.host_name}\r\nappname={self.app_name}\r\nroom={self.room}\r\n"
+
+    def _start_async_worker(self) -> None:
+        """Start async sender worker if needed."""
+        if not self.async_enabled:
+            return
+
+        with self._async_condition:
+            if self._async_worker and self._async_worker.is_alive():
+                return
+            self._async_stop_requested = False
+            self._async_worker = threading.Thread(target=self._async_worker_loop, daemon=True)
+            self._async_worker.start()
+
+    def _stop_async_worker(self, clear_queue: bool) -> None:
+        """Stop async sender worker, optionally clearing queued packets."""
+        if not self.async_enabled:
+            return
+
+        with self._async_condition:
+            if clear_queue:
+                self._async_queue.clear()
+            self._async_stop_requested = True
+            self._async_condition.notify_all()
+            worker = self._async_worker
+
+        if worker and worker.is_alive() and worker is not threading.current_thread():
+            worker.join(timeout=1.0)
+
+        with self._async_condition:
+            if worker and worker.is_alive():
+                # Keep stop requested so the worker exits once any in-flight I/O unwinds.
+                self._async_worker = worker
+            else:
+                self._async_worker = None
+                self._async_stop_requested = False
+
+    def _async_worker_loop(self) -> None:
+        """Process queued packets in background to avoid blocking caller threads."""
+        while True:
+            with self._async_condition:
+                while self._async_queue.is_empty and not self._async_stop_requested:
+                    self._async_condition.wait(timeout=0.25)
+
+                if self._async_stop_requested and self._async_queue.is_empty:
+                    return
+
+                packet = self._async_queue.pop()
+                self._async_condition.notify_all()
+
+            if packet is None:
+                continue
+
+            self._write_packet_sync(packet)
+
+    def _enqueue_async_packet(self, packet: Dict[str, Any]) -> None:
+        """Enqueue packet for background send."""
+        self._start_async_worker()
+
+        if self._async_queue.backlog <= 0:
+            return
+
+        packet_size = PacketQueue.estimate_packet_size(packet) + PacketQueue.OVERHEAD
+
+        with self._async_condition:
+            if self.async_throttle:
+                while (
+                    not self._async_stop_requested
+                    and self._async_queue.backlog > 0
+                    and self._async_queue.size + packet_size > self._async_queue.backlog
+                ):
+                    self._async_condition.wait(timeout=0.05)
+
+            if not self._async_stop_requested:
+                self._async_queue.push(packet)
+                self._async_condition.notify()
 
     def connect(self) -> None:
         """
         Connect to SmartInspect Console.
         Non-blocking - starts connection in background thread.
         """
+        if self.async_enabled:
+            self._start_async_worker()
+
         with self._lock:
             if self._connected or self._connect_in_progress:
                 return
@@ -329,7 +451,8 @@ class TcpProtocol:
             if self.on_error:
                 self.on_error(e)
         finally:
-            self._connect_in_progress = False
+            with self._lock:
+                self._connect_in_progress = False
 
     def _internal_connect(self) -> str:
         """Low-level connect (creates socket and performs handshake)."""
@@ -391,6 +514,7 @@ class TcpProtocol:
 
     def disconnect(self) -> None:
         """Disconnect from SmartInspect Console."""
+        self._stop_async_worker(clear_queue=self.async_clear_on_disconnect)
         with self._lock:
             self._queue.clear()
             self._internal_disconnect()
@@ -420,14 +544,16 @@ class TcpProtocol:
 
     def _try_reconnect(self) -> None:
         """Attempt reconnection with time-gating."""
-        if not self.reconnect or self._connect_in_progress:
-            return
+        with self._lock:
+            if not self.reconnect or self._connect_in_progress:
+                return
 
-        current_time = time.time()
-        if current_time - self._last_reconnect_time < self.reconnect_interval:
-            return  # Too soon, skip
+            current_time = time.time()
+            if current_time - self._last_reconnect_time < self.reconnect_interval:
+                return  # Too soon, skip
 
-        self._last_reconnect_time = current_time
+            self._last_reconnect_time = current_time
+            self._connect_in_progress = True
 
         # Start reconnection in background
         thread = threading.Thread(target=self._background_connect, daemon=True)
@@ -438,15 +564,42 @@ class TcpProtocol:
         Write a packet to the connection.
         If disconnected and backlog is enabled, queues the packet.
         """
+        if self.async_enabled:
+            self._enqueue_async_packet(packet)
+            return
+
+        self._write_packet_sync(packet)
+
+    def _write_packet_sync(self, packet: Dict[str, Any]) -> None:
+        """Write packet on current thread (used by sync mode and async worker)."""
+        packet_level = int(packet.get("level", int(Level.MESSAGE)))
+
         if not self._connected:
             if not self.reconnect:
                 return
 
             if self.backlog_enabled:
-                self._queue.push(packet)
+                flush_requested = (
+                    packet_level >= self.backlog_flush_on and packet_level != int(Level.CONTROL)
+                )
+                if flush_requested:
+                    if self._keep_open:
+                        self._try_reconnect()
+                    if self._connected:
+                        self._flush_queue()
+                    else:
+                        self._queue.push(packet)
+                        return
+                else:
+                    self._queue.push(packet)
+                    if self._keep_open:
+                        self._try_reconnect()
+                    return
+            else:
                 if self._keep_open:
                     self._try_reconnect()
-            return
+                if not self._connected:
+                    return
 
         # Connected - send directly
         try:
@@ -504,4 +657,6 @@ class TcpProtocol:
         return {
             "backlog_count": self._queue.count,
             "backlog_size": self._queue.size,
+            "async_count": self._async_queue.count if self.async_enabled else 0,
+            "async_size": self._async_queue.size if self.async_enabled else 0,
         }
